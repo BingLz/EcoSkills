@@ -25,7 +25,7 @@ jobs:
 
       # 构建项目并生成 Shadow JAR
       - name: Build with Gradle (ShadowJar)
-        run: ./gradlew shadowJar --no-daemon
+        run: ./gradlew clean shadowJar
 
       # 提取版本号（从 gradle.properties 中读取）
       - name: Extract version from gradle.properties
