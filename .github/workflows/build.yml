@@ -1,0 +1,46 @@
+name: Build Minecraft Plugin
+
+on:
+  workflow_dispatch: # 允许手动触发
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # 使用最快的 Linux 环境
+
+    steps:
+      # 检出代码仓库
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # 设置 Java 21 环境
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin' # 使用 Eclipse Temurin 提供的 OpenJDK 构建
+
+      # 缓存 Gradle 依赖以加速构建
+      - name: Cache Gradle Dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      # 下载依赖并构建项目
+      - name: Build with Gradle
+        run: ./gradlew build --no-daemon --parallel --build-cache
+
+      # 上传构建结果（使用最新版本 v4）
+      - name: Upload Build Artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-build
+          path: build/libs/*.jar # 假设构建结果是 JAR 文件
