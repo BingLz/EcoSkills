@@ -1,43 +1,81 @@
-name: Pre release
+name: Build and Release Minecraft Plugin
 
 on:
+  # 手动触发工作流
+  workflow_dispatch:
+
+  # 可选：保留自动触发（如 push 或 pull_request）
   push:
     branches:
-      - master
-  workflow_dispatch:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
-    name: Gradle-Build
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      
-      # Setup JDK
-      - name: Setup Java JDK
+      # 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 设置 JDK 环境
+      - name: Set up JDK
         uses: actions/setup-java@v3
         with:
-          java-version: 17
-          distribution: 'zulu'
-          cache: 'gradle'
-        
-      # Build
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
-      - name: Build with Gradle
-        run: ./gradlew build
+          java-version: '17' # 根据你的项目需求选择合适的 JDK 版本
+          distribution: 'temurin'
 
-      # Auto release
-      - name: Auto release
-        uses: "marvinpinto/action-automatic-releases@latest"
+      # 授予 gradlew 执行权限
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # 构建项目并生成 Shadow JAR
+      - name: Build with Gradle (ShadowJar)
+        run: ./gradlew shadowJar --no-daemon
+
+      # 提取版本号（从 build.gradle 中读取）
+      - name: Extract version from build.gradle
+        id: extract_version
+        run: |
+          VERSION=$(grep '^version' build.gradle | awk -F "'" '{print $2}')
+          echo "Extracted version: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_ENV
+
+      # 验证生成的 JAR 文件
+      - name: Verify Shadow JAR
+        run: |
+          ls -l build/libs/
+          echo "Generated JAR file: your-plugin-${{ env.version }}.jar"
+
+      # 上传构建产物为 Artifact
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: latest
-          prerelease: true
-          files: |
-            eco-core/core-stub/build/libs/core-stub-*.jar
-            eco-core/core-plugin/build/libs/core-plugin-*.jar
-            eco-core/core-proxy/build/libs/core-proxy-*.jar
-            bin/*.jar
-            LICENSE
+          name: plugin-build
+          path: build/libs/*.jar
+
+      # 创建 GitHub Release 并上传 JAR 文件
+      - name: Create GitHub Release
+        if: github.event_name == 'workflow_dispatch'
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: v${{ env.version }}
+          release_name: Release ${{ env.version }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 上传 JAR 文件到 Release
+      - name: Upload JAR to Release
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: build/libs/your-plugin-${{ env.version }}.jar
+          asset_name: your-plugin-${{ env.version }}.jar
+          asset_content_type: application/java-archive
