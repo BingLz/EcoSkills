@@ -1,7 +1,7 @@
-name: Build and Release Minecraft Plugin
+name: Build Minecraft Plugin
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # 手动触发工作流
 
 jobs:
   build:
@@ -16,7 +16,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
-          java-version: '17'
+          java-version: '17' # 根据你的项目需求选择合适的 JDK 版本
           distribution: 'temurin'
 
       # 授予 gradlew 执行权限
@@ -43,11 +43,13 @@ jobs:
       - name: Verify Shadow JAR
         run: |
           ls -l build/libs/
-          if [ ! -f "build/libs/${{ env.project_name }}-${{ env.version }}.jar" ]; then
+          FILENAME=$(ls build/libs/ | grep -E "^${{ env.project_name }}-${{ env.version }}(-all)?.jar$")
+          if [ -z "$FILENAME" ]; then
             echo "Error: Generated JAR file not found!"
             exit 1
           fi
-          echo "Generated JAR file: build/libs/${{ env.project_name }}-${{ env.version }}.jar"
+          echo "Generated JAR file: build/libs/$FILENAME"
+          echo "generated_jar=build/libs/$FILENAME" >> $GITHUB_ENV
 
       # 上传构建产物为 Artifact
       - name: Upload artifact
