@@ -1,48 +1,49 @@
-name: Build Minecraft Plugin
+name: Advanced Build
 
 on:
-  workflow_dispatch: # 手动触发工作流
+  push:
+    branches: [ "main" ]
+    tags: [ 'v*' ] # 监听版本标签
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # 检出代码
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 设置 JDK 环境
-      - name: Set up JDK
+      - name: Setup Java
         uses: actions/setup-java@v3
         with:
-          java-version: '17' # 根据你的项目需求选择合适的 JDK 版本
           distribution: 'temurin'
+          java-version: '17'
 
-      # 授予 gradlew 执行权限
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      - name: Cache Gradle
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle.properties') }}
 
-      # 构建项目并生成 Shadow JAR
-      - name: Build with Gradle (ShadowJar)
-        run: ./gradlew clean shadowJar
-
-      # 提取版本号（从 gradle.properties 中读取）
-      - name: Extract version from gradle.properties
-        id: extract_version
+      - name: Execute build
         run: |
-          VERSION=$(grep '^version' gradle.properties | awk -F '=' '{print $2}' | tr -d ' ')
-          if [ -z "$VERSION" ]; then
-            echo "Error: Failed to extract version from gradle.properties"
-            exit 1
-          fi
-          echo "Extracted version: $VERSION"
-          echo "version=$VERSION" >> $GITHUB_ENV
+          chmod +x gradlew
+          ./gradlew clean shadowJar --stacktrace
 
-
-      # 上传构建产物为 Artifact
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: plugin-build
+          name: Plugin-${{ github.run_number }}
           path: build/libs/*.jar
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            build/libs/*.jar
+          draft: false
+          prerelease: false
