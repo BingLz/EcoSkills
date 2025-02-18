@@ -1,4 +1,4 @@
-name: Build Minecraft Plugin
+name: Build Minecraft Plugin (Gradle)
 
 on:
   # 触发条件：推送代码到 main 分支或手动触发
@@ -14,38 +14,40 @@ jobs:
     steps:
       # 检出代码
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # 设置 Java 环境 (Java 21)
       - name: Set up JDK 21
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: 21
           distribution: temurin
 
-      # 缓存 Maven 依赖以加速构建
-      - name: Cache Maven packages
-        id: cache-maven
+      # 缓存 Gradle 依赖以加速构建
+      - name: Cache Gradle dependencies
+        id: cache-gradle
         uses: actions/cache@v3
         with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
-            ${{ runner.os }}-maven-
+            ${{ runner.os }}-gradle-
 
       # 构建项目并打包插件
-      - name: Build with Maven
-        run: mvn clean package -DskipTests=true
+      - name: Build with Gradle
+        run: ./gradlew clean build --no-daemon
 
       # 检查构建结果是否包含插件 JAR 文件
       - name: Verify plugin JAR exists
         run: |
-          ls -l target/
-          test -f target/*.jar || (echo "No JAR file found in target directory!" && exit 1)
+          ls -l build/libs/
+          test -f build/libs/*.jar || (echo "No JAR file found in build/libs directory!" && exit 1)
 
       # 打包插件并上传为构建产物
       - name: Upload plugin artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: minecraft-plugin
-          path: target/*.jar
+          path: build/libs/*.jar
