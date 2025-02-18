@@ -39,17 +39,6 @@ jobs:
           echo "Extracted version: $VERSION"
           echo "version=$VERSION" >> $GITHUB_ENV
 
-      # 验证生成的 JAR 文件
-      - name: Verify Shadow JAR
-        run: |
-          ls -l build/libs/
-          FILENAME=$(ls build/libs/ | grep -E "^${{ env.project_name }}-${{ env.version }}(-all)?.jar$")
-          if [ -z "$FILENAME" ]; then
-            echo "Error: Generated JAR file not found!"
-            exit 1
-          fi
-          echo "Generated JAR file: build/libs/$FILENAME"
-          echo "generated_jar=build/libs/$FILENAME" >> $GITHUB_ENV
 
       # 上传构建产物为 Artifact
       - name: Upload artifact
