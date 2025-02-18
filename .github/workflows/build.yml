@@ -1,59 +1,43 @@
-name: Build Plugin
+name: Pre release
 
 on:
   push:
     branches:
-      - main # 或者你使用的主分支名称
-  pull_request:
-    branches:
-      - main
-  workflow_dispatch: # 允许手动触发工作流
+      - master
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    name: Gradle-Build
+    runs-on: ubuntu-20.04
     steps:
-      # 检出代码
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # 设置 Java 环境
-      - name: Set up JDK 17
+      - name: Checkout
+        uses: actions/checkout@v2
+      
+      # Setup JDK
+      - name: Setup Java JDK
         uses: actions/setup-java@v3
         with:
           java-version: 17
-          distribution: temurin
-
-      # 设置 Gradle 缓存
-      - name: Setup Gradle cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
-      # 验证 Gradle Wrapper
-      - name: Validate Gradle Wrapper
-        run: ./gradlew --version
-
-      # 构建项目
+          distribution: 'zulu'
+          cache: 'gradle'
+        
+      # Build
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
       - name: Build with Gradle
-        run: ./gradlew clean build shadowJar
+        run: ./gradlew build
 
-      # 打包构建产物
-      - name: Package artifacts
-        run: |
-          mkdir -p build/artifacts
-          cp build/libs/*.jar build/artifacts/
-          zip -r build/artifacts.zip build/artifacts/
-
-      # 上传构建产物
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4 # 更新到 v4
+      # Auto release
+      - name: Auto release
+        uses: "marvinpinto/action-automatic-releases@latest"
         with:
-          name: plugin-build
-          path: build/artifacts.zip
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: latest
+          prerelease: true
+          files: |
+            eco-core/core-stub/build/libs/core-stub-*.jar
+            eco-core/core-plugin/build/libs/core-plugin-*.jar
+            eco-core/core-proxy/build/libs/core-proxy-*.jar
+            bin/*.jar
+            LICENSE
